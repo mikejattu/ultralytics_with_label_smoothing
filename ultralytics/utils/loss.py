@@ -281,7 +281,14 @@ class v8DetectionLoss:
 
         # Cls loss
         # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
-        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        # adding label smoothing to the BCE Loss
+        if getattr(self.hyp, "label_smoothing", 0.0) > 0.0:
+            from ultralytics.utils.metrics import smooth_bce
+            eps = self.hyp.label_smoothing
+            pos, neg = smooth_bce(eps=eps)
+            # Apply label smoothing: positive targets use 'pos', negative targets use 'neg'
+            target_scores = target_scores * (pos - neg) + neg
+        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE with label smoothing
 
         # Bbox loss
         if fg_mask.sum():
