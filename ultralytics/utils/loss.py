@@ -63,6 +63,7 @@ class FocalLoss(nn.Module):
     def __init__(self, gamma: float = 1.5, alpha: float = 0.25):
         """Initialize FocalLoss class with focusing and balancing parameters."""
         super().__init__()
+        print("[FocalLoss] Initializing FocalLoss")
         self.gamma = gamma
         self.alpha = torch.tensor(alpha)
 

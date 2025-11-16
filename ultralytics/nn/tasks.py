@@ -481,7 +481,12 @@ class DetectionModel(BaseModel):
 
     def init_criterion(self):
         """Initialize the loss criterion for the DetectionModel."""
-        return E2EDetectLoss(self) if getattr(self, "end2end", False) else v8DetectionLoss(self)
+        if getattr(self, "end2end", False):
+            print("[DetectionModel] Initializing E2EDetectLoss")
+            return E2EDetectLoss(self)
+        else:
+            print("[DetectionModel] Initializing v8DetectionLoss")
+            return v8DetectionLoss(self)
 
 
 class OBBModel(DetectionModel):
