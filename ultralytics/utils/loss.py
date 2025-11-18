@@ -319,8 +319,8 @@ class v8DetectionLoss:
         if self.class_weights is not None:
             # Expand class_weights to match pred_scores shape: (1, 1, num_classes)
             class_weights_expanded = self.class_weights.view(1, 1, -1)
-            print("[cls loss] class weights expanded", class_weights_expanded.shape())
-            print("[cls loss] cls loss per element", cls_loss_per_element.shape())
+            print("[cls loss] class weights expanded", class_weights_expanded.shape)
+            print("[cls loss] cls loss per element", cls_loss_per_element.shape)
             # Apply weights: multiply each class's loss by its weight
             cls_loss_per_element = cls_loss_per_element * class_weights_expanded
         
