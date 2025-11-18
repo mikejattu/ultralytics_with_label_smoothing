@@ -222,8 +222,8 @@ class v8DetectionLoss:
         self.class_weights = None
         if hasattr(h, "class_weights") and h.class_weights is not None:
             # Make sure that the length of the class_weights is the same as the number of classes
-            if len(h.class_weights) != self.nc:
-                raise ValueError(f"class_weights length ({len(h.class_weights)}) must match number of classes ({self.nc})")
+            # if len(h.class_weights) != self.nc:
+            #     raise ValueError(f"class_weights length ({len(h.class_weights)}) must match number of classes ({self.nc})")
             
             # Convert to tensor based on input type
             if isinstance(h.class_weights, (list, tuple)):
@@ -235,6 +235,7 @@ class v8DetectionLoss:
         else:
             # Default: equal weights for all classes
             self.class_weights = torch.ones(self.nc, dtype=torch.float, device=device)
+        
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
         """Preprocess targets by converting to tensor format and scaling coordinates."""
@@ -318,6 +319,8 @@ class v8DetectionLoss:
         if self.class_weights is not None:
             # Expand class_weights to match pred_scores shape: (1, 1, num_classes)
             class_weights_expanded = self.class_weights.view(1, 1, -1)
+            print("[cls loss] class weights expanded", class_weights_expanded.shape())
+            print("[cls loss] cls loss per element", cls_loss_per_element.shape())
             # Apply weights: multiply each class's loss by its weight
             cls_loss_per_element = cls_loss_per_element * class_weights_expanded
         
