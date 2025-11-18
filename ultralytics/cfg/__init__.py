@@ -491,8 +491,11 @@ def check_dict_alignment(
     custom = _handle_deprecation(custom)
     base_keys, custom_keys = (frozenset(x.keys()) for x in (base, custom))
     # Allow 'augmentations' as a valid custom parameter for custom Albumentations transforms
+    # Allow 'class_weights' as a valid custom parameter for weighted loss
     if allowed_custom_keys is None:
-        allowed_custom_keys = {"augmentations"}
+        allowed_custom_keys = {"augmentations", "class_weights"}
+    else:
+        allowed_custom_keys = allowed_custom_keys | {"augmentations", "class_weights"}
     if mismatched := [k for k in custom_keys if k not in base_keys and k not in allowed_custom_keys]:
         from difflib import get_close_matches
 

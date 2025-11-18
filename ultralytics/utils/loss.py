@@ -63,7 +63,6 @@ class FocalLoss(nn.Module):
     def __init__(self, gamma: float = 1.5, alpha: float = 0.25):
         """Initialize FocalLoss class with focusing and balancing parameters."""
         super().__init__()
-        print("[FocalLoss] Initializing FocalLoss")
         self.gamma = gamma
         self.alpha = torch.tensor(alpha)
 
@@ -196,7 +195,11 @@ class v8DetectionLoss:
     """Criterion class for computing training losses for YOLOv8 object detection."""
 
     def __init__(self, model, tal_topk: int = 10):  # model must be de-paralleled
-        """Initialize v8DetectionLoss with model parameters and task-aligned assignment settings."""
+        """Initialize v8DetectionLoss with model parameters and task-aligned assignment settings.
+        
+        Supports weighted loss through per-class weights:
+        - Set `model.args.class_weights` as a list/tensor of length `nc` to weight classes differently
+        """
         device = next(model.parameters()).device  # get model device
         h = model.args  # hyperparameters
 
@@ -214,6 +217,24 @@ class v8DetectionLoss:
         self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
+        
+        # Initialize class weights if provided
+        self.class_weights = None
+        if hasattr(h, "class_weights") and h.class_weights is not None:
+            # Make sure that the length of the class_weights is the same as the number of classes
+            if len(h.class_weights) != self.nc:
+                raise ValueError(f"class_weights length ({len(h.class_weights)}) must match number of classes ({self.nc})")
+            
+            # Convert to tensor based on input type
+            if isinstance(h.class_weights, (list, tuple)):
+                self.class_weights = torch.tensor(h.class_weights, dtype=torch.float, device=device)
+            elif isinstance(h.class_weights, torch.Tensor):
+                self.class_weights = h.class_weights.to(device)
+            else:
+                raise ValueError(f"class_weights must be a list, tuple, or tensor, got {type(h.class_weights)}")
+        else:
+            # Default: equal weights for all classes
+            self.class_weights = torch.ones(self.nc, dtype=torch.float, device=device)
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
         """Preprocess targets by converting to tensor format and scaling coordinates."""
@@ -289,7 +310,18 @@ class v8DetectionLoss:
             pos, neg = smooth_bce(eps=eps)
             # Apply label smoothing: positive targets use 'pos', negative targets use 'neg'
             target_scores = target_scores * (pos - neg) + neg
-        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE with label smoothing
+        
+        # Compute classification loss with per-class weights if available
+        cls_loss_per_element = self.bce(pred_scores, target_scores.to(dtype))  # (batch, anchors, classes)
+        
+        # Apply per-class weights to classification loss
+        if self.class_weights is not None:
+            # Expand class_weights to match pred_scores shape: (1, 1, num_classes)
+            class_weights_expanded = self.class_weights.view(1, 1, -1)
+            # Apply weights: multiply each class's loss by its weight
+            cls_loss_per_element = cls_loss_per_element * class_weights_expanded
+        
+        loss[1] = cls_loss_per_element.sum() / target_scores_sum  # BCE with label smoothing and class weights
 
         # Bbox loss
         if fg_mask.sum():
