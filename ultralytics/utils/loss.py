@@ -316,18 +316,14 @@ class v8DetectionLoss:
         cls_loss_per_element = self.bce(pred_scores, target_scores.to(dtype))  # (batch, anchors, classes)
         
         # Apply per-class weights to classification loss
-        denom = target_scores_sum
         if self.class_weights is not None:
-            # Expand class_weights to match pred_scores shape: (1, 1, num_classes)
-            class_weights_expanded = self.class_weights.view(1, 1, -1)
-            # Apply weights: multiply each class's loss by its weight
+             # Apply weights: multiply each class's loss by its weight
             w = self.class_weights.view(1, 1, -1).to(
                 device=cls_loss_per_element.device, dtype=cls_loss_per_element.dtype
             )
             cls_loss_per_element = cls_loss_per_element * w  # weight each class' BCE
         
-            denom = (target_scores * w).sum().clamp(min=1.0)
-        loss[1] = cls_loss_per_element.sum() / denom  # BCE with label smoothing and class weights
+        loss[1] = cls_loss_per_element.sum() / target_scores_sum  # BCE with label smoothing and class weights
 
         # Bbox loss
         if fg_mask.sum():
